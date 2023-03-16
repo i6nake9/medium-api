@@ -7,6 +7,9 @@ import {
   Param,
   Delete,
   Put,
+  UsePipes,
+  ValidationPipe,
+  Query,
 } from '@nestjs/common';
 import { ArticleService } from './article.service';
 import { AuthGuard } from '@app/user/guards/auth.guard';
@@ -15,12 +18,23 @@ import { User } from '@app/user/decorators/user.decorator';
 import { CreateArticleDto } from './dto/createArticle.dto';
 import { ArticleResponseInterface } from './types/articleResponse.interface';
 import { UpdateArticleDto } from './dto/updateArticle.dto';
+import { ArticlesResponseInterface } from './types/articlesResponse.interface';
 
 @Controller('articles')
 export class ArticleController {
   constructor(private readonly articleService: ArticleService) {}
+
+  @Get()
+  async findAll(
+    @User('id') currentUserId: number,
+    @Query() query: any,
+  ): Promise<ArticlesResponseInterface> {
+    return await this.articleService.findAll(currentUserId, query);
+  }
+
   @Post()
   @UseGuards(AuthGuard)
+  @UsePipes(new ValidationPipe())
   async create(
     @User() currentUser: UserEntity,
     @Body('article') createArticleDto: CreateArticleDto,
@@ -37,7 +51,7 @@ export class ArticleController {
   async getSingleArticle(
     @Param() params: { slug: string },
   ): Promise<ArticleResponseInterface> {
-    const article = await this.articleService.getArticle(params.slug);
+    const article = await this.articleService.findBySlug(params.slug);
     return this.articleService.buildArticleResponse(article);
   }
 
@@ -52,16 +66,42 @@ export class ArticleController {
 
   @Put(':slug')
   @UseGuards(AuthGuard)
+  @UsePipes(new ValidationPipe())
   async updateArticle(
     @User('id') currentUserId: number,
     @Body('article') updateArticleDto: UpdateArticleDto,
     @Param('slug') slug: string,
   ): Promise<ArticleResponseInterface> {
-    const updateArticle = await this.articleService.updateSingleArticle(
-      currentUserId,
-      updateArticleDto,
+    const updateArticle = await this.articleService.updateArticle(
       slug,
+      updateArticleDto,
+      currentUserId,
     );
     return this.articleService.buildArticleResponse(updateArticle);
+  }
+
+  @Post(':slug/favorites')
+  @UseGuards(AuthGuard)
+  async addArticleToFavorites(
+    @User('id') currentUserdId: number,
+    @Param('slug') slug: string,
+  ): Promise<ArticleResponseInterface> {
+    const article = await this.articleService.addArticleToFavorites(
+      slug,
+      currentUserdId,
+    );
+    return this.articleService.buildArticleResponse(article);
+  }
+  @Delete(':slug/favorites')
+  @UseGuards(AuthGuard)
+  async deleteArticleFromFavorites(
+    @User('id') currentUserdId: number,
+    @Param('slug') slug: string,
+  ): Promise<ArticleResponseInterface> {
+    const article = await this.articleService.deleteArticleFromFavorites(
+      slug,
+      currentUserdId,
+    );
+    return this.articleService.buildArticleResponse(article);
   }
 }
